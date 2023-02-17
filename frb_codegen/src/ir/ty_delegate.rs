@@ -66,7 +66,7 @@ impl IrTypeDelegateSlice {
     pub fn dart_api_type(&self) -> String {
         match self {
             IrTypeDelegateSlice::GeneralSlice{ general} => {
-                format!("{}Slice", general.dart_api_type())
+                format!("List<{}>", general.dart_api_type())
             }
         }
     }

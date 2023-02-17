@@ -13,6 +13,7 @@ pub enum IrType {
     PrimitiveList(IrTypePrimitiveList),
     Optional(IrTypeOptional),
     GeneralList(IrTypeGeneralList),
+    GeneralSlice(IrTypeGeneralSlice),
     StructRef(IrTypeStructRef),
     Boxed(IrTypeBoxed),
     EnumRef(IrTypeEnumRef),
@@ -113,6 +114,7 @@ impl IrType {
     pub fn is_js_value(&self) -> bool {
         match self {
             Self::GeneralList(_)
+            | Self::GeneralSlice(_)
             | Self::StructRef(_)
             | Self::EnumRef(_)
             | Self::RustOpaque(_)
