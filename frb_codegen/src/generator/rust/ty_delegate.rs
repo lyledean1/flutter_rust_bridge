@@ -42,6 +42,22 @@ impl TypeRustGeneratorTrait for TypeDelegateGenerator<'_> {
                 }
                 Acc::distribute(acc)
             },
+            IrTypeDelegate::Slice(slice) => {
+                let acc =
+                    Some(
+                        format!(
+                            "let vec: Vec<{}> = self.wire2api(); support::from_vec_to_array(vec)",
+                            slice.inner_rust_api_type()
+                        ),
+                    );
+                if slice.inner_is_js_value() {
+                    return Acc {
+                        io: acc,
+                        ..Default::default()
+                    };
+                }
+                Acc::distribute(acc)
+            },
             IrTypeDelegate::String => {
                 Acc {
                     wasm: Some("self".into()),

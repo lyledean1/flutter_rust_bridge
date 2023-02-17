@@ -29,7 +29,12 @@ impl TypeDartGeneratorTrait for TypeDelegateGenerator<'_> {
                     ..Default::default()
                 },
             },
-
+            IrTypeDelegate::Slice(ref slice) => match slice {
+                IrTypeDelegateSlice::GeneralSlice { .. } => Acc::distribute(Some(format!(
+                    "return api2wire_{}(raw);",
+                    slice.get_delegate().safe_ident(),
+                ))),
+            }
             IrTypeDelegate::String => Acc {
                 io: Some("return api2wire_uint_8_list(utf8.encoder.convert(raw));".into()),
                 wasm: Some("return raw;".into()),
@@ -97,7 +102,13 @@ impl TypeDartGeneratorTrait for TypeDelegateGenerator<'_> {
                     array.get_delegate().safe_ident(),
                 ),
             },
-
+            IrTypeDelegate::Slice(ref slice) => match slice {
+                IrTypeDelegateSlice::GeneralSlice { general, .. } => format!(
+                    r"return {}((raw as List<dynamic>).map(_wire2api_{}).toList());",
+                    slice.dart_api_type(),
+                    general.safe_ident(),
+                ),
+            }
             IrTypeDelegate::ZeroCopyBufferVecPrimitive(
                 IrTypePrimitive::I64 | IrTypePrimitive::U64,
             ) => {

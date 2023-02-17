@@ -53,8 +53,9 @@ pub enum SupportedInnerType {
     /// the last segment are ignored. The generic type argument must also be a valid
     /// `SupportedInnerType`.
     Path(SupportedPathType),
-    /// Array type
+    /// Size Array type
     Array(Box<Self>, usize),
+    Slice(Box<Self>),
     /// Unparsed type, only useful for Opaque.
     Verbatim(Box<syn::Type>),
     /// The unit type `()`.
@@ -66,6 +67,7 @@ impl std::fmt::Display for SupportedInnerType {
         match self {
             Self::Path(p) => write!(f, "{p}"),
             Self::Array(u, len) => write!(f, "[{u}; {len}]"),
+            Self::Slice(u) => write!(f, "[{u}]"),
             Self::Verbatim(ver) => write!(f, "{}", quote::quote!(#ver)),
             Self::Unit => write!(f, "()"),
         }
@@ -131,6 +133,11 @@ impl SupportedInnerType {
                     len,
                 ))
             }
+            syn::Type::Slice(syn::TypeSlice {elem , ..}) => {
+                Some(SupportedInnerType::Slice(
+                    Box::new(SupportedInnerType::try_from_syn_type(elem)?),
+                ))
+            },
             syn::Type::Tuple(syn::TypeTuple { elems, .. }) if elems.is_empty() => {
                 Some(SupportedInnerType::Unit)
             }
@@ -173,6 +180,7 @@ impl<'a> TypeParser<'a> {
         match ty {
             SupportedInnerType::Path(p) => self.convert_path_to_ir_type(p),
             SupportedInnerType::Array(p, len) => self.convert_array_to_ir_type(*p, len),
+            SupportedInnerType::Slice(p) => self.convert_slice_to_ir_type(*p),
             SupportedInnerType::Unit => Some(IrType::Primitive(IrTypePrimitive::Unit)),
             SupportedInnerType::Verbatim(_) => None,
         }
@@ -193,6 +201,23 @@ impl<'a> TypeParser<'a> {
             }
             others => Delegate(IrTypeDelegate::Array(IrTypeDelegateArray::GeneralArray {
                 length,
+                general: Box::new(others),
+            })),
+        })
+    }
+
+    pub fn convert_slice_to_ir_type(
+        &mut self,
+        generic: SupportedInnerType,
+    ) -> Option<IrType> {
+        self.convert_to_ir_type(generic).map(|inner| match inner {
+            // Primitive(primitive) => {
+            //     Delegate(IrTypeDelegate::Slice(IrTypeDelegateA::PrimitiveArray {
+            //         length,
+            //         primitive,
+            //     }))
+            // }
+            others => Delegate(IrTypeDelegate::Slice(IrTypeDelegateSlice::GeneralSlice {
                 general: Box::new(others),
             })),
         })
@@ -252,6 +277,7 @@ impl<'a> TypeParser<'a> {
                 }
                 "RustOpaque" => match *generic {
                     SupportedInnerType::Array(p, len) => self.convert_array_to_ir_type(*p, len),
+                    SupportedInnerType::Slice(p) => self.convert_slice_to_ir_type(*p),
                     SupportedInnerType::Verbatim(ver) => {
                         Some(IrType::RustOpaque(IrTypeRustOpaque::from(ver.as_ref())))
                     }

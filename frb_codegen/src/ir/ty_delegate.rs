@@ -28,6 +28,7 @@ impl IrTypeTime {
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum IrTypeDelegate {
     Array(IrTypeDelegateArray),
+    Slice(IrTypeDelegateSlice),
     String,
     StringList,
     ZeroCopyBufferVecPrimitive(IrTypePrimitive),
@@ -43,6 +44,70 @@ pub enum IrTypeDelegate {
     #[cfg(feature = "uuid")]
     Uuids,
 }
+
+#[derive(Clone, Debug, Hash, Eq, PartialEq)]
+pub enum IrTypeDelegateSlice {
+    GeneralSlice {
+        general: Box<IrType>,
+    },
+}
+
+impl IrTypeDelegateSlice {
+    pub fn get_delegate(&self) -> IrType {
+        match self {
+            IrTypeDelegateSlice::GeneralSlice { general, .. } => {
+                IrType::GeneralList(IrTypeGeneralList {
+                    inner: general.clone(),
+                })
+            }
+        }
+    }
+
+    pub fn dart_api_type(&self) -> String {
+        match self {
+            IrTypeDelegateSlice::GeneralSlice{ general} => {
+                format!("{}Slice", general.dart_api_type())
+            }
+        }
+    }
+
+    pub fn safe_ident(&self) -> String {
+        match self {
+            IrTypeDelegateSlice::GeneralSlice{ general} => {
+                format!("{}_slice", general.dart_api_type())
+            }
+        }
+    }
+
+    pub fn inner_dart_api_type(&self) -> String {
+        match self {
+            IrTypeDelegateSlice::GeneralSlice { general, .. } => general.dart_api_type(),
+        }
+    }
+
+    pub fn inner_rust_api_type(&self) -> String {
+        match self {
+            IrTypeDelegateSlice::GeneralSlice { general, .. } => general.rust_api_type(),
+        }
+    }
+
+    pub fn inner_is_js_value(&self) -> bool {
+        match self {
+            IrTypeDelegateSlice::GeneralSlice { general, .. } => general.is_js_value(),
+        }
+    }
+
+    pub fn dart_init_method(&self) -> String {
+        match self {
+            IrTypeDelegateSlice::GeneralSlice {  .. } => format!(
+                "{0}.init({1} fill): super(List<{1}>);",
+                self.dart_api_type(),
+                self.inner_dart_api_type()
+            ),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub enum IrTypeDelegateArray {
     GeneralArray {
@@ -154,6 +219,7 @@ impl IrTypeDelegate {
     pub fn get_delegate(&self) -> IrType {
         match self {
             IrTypeDelegate::Array(array) => array.get_delegate(),
+            IrTypeDelegate::Slice(slice) => slice.get_delegate(), 
             IrTypeDelegate::String => IrType::PrimitiveList(IrTypePrimitiveList {
                 primitive: IrTypePrimitive::U8,
             }),
@@ -186,6 +252,7 @@ impl IrTypeTrait for IrTypeDelegate {
     fn safe_ident(&self) -> String {
         match self {
             IrTypeDelegate::Array(array) => array.safe_ident(),
+            IrTypeDelegate::Slice(slice) => slice.safe_ident(),
             IrTypeDelegate::String => "String".to_owned(),
             IrTypeDelegate::StringList => "StringList".to_owned(),
             IrTypeDelegate::ZeroCopyBufferVecPrimitive(_) => {
@@ -204,6 +271,7 @@ impl IrTypeTrait for IrTypeDelegate {
     fn dart_api_type(&self) -> String {
         match self {
             IrTypeDelegate::Array(array) => array.dart_api_type(),
+            IrTypeDelegate::Slice(slice) => slice.dart_api_type(),
             IrTypeDelegate::String => "String".to_string(),
             IrTypeDelegate::StringList => "List<String>".to_owned(),
             IrTypeDelegate::ZeroCopyBufferVecPrimitive(_) => self.get_delegate().dart_api_type(),
@@ -233,6 +301,9 @@ impl IrTypeTrait for IrTypeDelegate {
         match self {
             IrTypeDelegate::Array(array) => {
                 format!("[{}; {}]", array.inner_rust_api_type(), array.length())
+            }
+            IrTypeDelegate::Slice(slice) => {
+                format!("[{}]", slice.inner_rust_api_type())
             }
             IrTypeDelegate::String => "String".to_owned(),
             IrTypeDelegate::StringList => "Vec<String>".to_owned(),
